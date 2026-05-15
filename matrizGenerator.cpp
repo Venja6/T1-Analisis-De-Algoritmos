@@ -1,9 +1,9 @@
 #include <iostream>
 #include <vector>
 #include <random>
+#include <fstream>
+#include <string>
 
-int x = 10;
-int y = 10; 
 int range_low = 0;
 int range_high = 24;
 
@@ -16,22 +16,36 @@ std::mt19937 gen(rd());
 // 3. Definir la distribución (rango)
 std::uniform_int_distribution<> distribucion(range_low, range_high); 
 
-
 //crea matrices de numeros aleatorios de range_low a range_high de tamaño preestablecido, en el enunciado se asumen dimensiones potencia de 2
-std::vector<std::vector<int>> matrizGenerador(){
+std::vector<std::vector<int>> matrizGenerador(int x, int y){
     std::vector<std::vector<int>> matriz(x, std::vector<int>(y));
     for(int i = 0; i < x; i++){
         for(int k = 0; k < y; k++){
             matriz[i][k] = distribucion(gen);
-            std::cout << matriz[i][k];
-            std::cout << " ";
+            //std::cout << matriz[i][k];
+            //std::cout << " ";
         }
-        std::cout << "\n";
+        //std::cout << "\n";
     }
     return matriz;
 };
 
+void saveMatriz(std::vector<std::vector<int>> matriz, std::string nombre_output){
+    std::ofstream outFile(nombre_output);
+    if (outFile.is_open()) {
+        for (const auto& row : matriz) {
+            for (size_t i = 0; i < row.size(); ++i) {
+                outFile << row[i];
+                if (i < row.size() - 1) outFile << " ";
+            }
+            outFile << "\n";
+        }
+        outFile.close();
+    }
+}    
+
 int main(){
-    matrizGenerador();
+    saveMatriz(matrizGenerador(1024, 1024), "matriz1");
+    saveMatriz(matrizGenerador(1024, 1024), "matriz2");
     return 0;
 }
