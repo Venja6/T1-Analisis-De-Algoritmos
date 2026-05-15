@@ -3,95 +3,134 @@
 #include <tuple>
 #include <algorithm>
 #include <string>
+#include <chrono>
 
 using namespace std;
-
-vector<vector<int>> add_matrices(const vector<vector<int>>& A, const vector<vector<int>>& B) {
-    int n = A.size();
-    vector<vector<int>> result(n, vector<int>(n));
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            result[i][j] = A[i][j] + B[i][j];
-        }
+struct Matrix{
+    vector<int>& datos;
+    int largo_original; 
+    int punto_inicio; 
+    int n; //tamaño de la matriz (n x n) (Mientras el algoritmo avance, n se reducirá a la mitad en cada llamada recursiva (submatrices))
+    
+    //Segmento para trabajar como una matriz incluso cuando solo es un vector 1D (traductor de índices)
+    //setter y getter
+    int& operator()(int row, int col) {
+        return datos[punto_inicio + row * largo_original + col];
     }
-    return result;
-}
-
-vector<vector<int>> subtract_matrices(const vector<vector<int>>& A, const vector<vector<int>>& B) {
-    int n = A.size();
-    vector<vector<int>> result(n, vector<int>(n));
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            result[i][j] = A[i][j] - B[i][j];
-        }
+    const int& operator()(int row, int col) const {
+        return datos[punto_inicio + row * largo_original + col];
     }
-    return result;
-}
+};
 
-tuple<vector<vector<int>>, vector<vector<int>>, vector<vector<int>>, vector<vector<int>>> div_matrix(vector<vector<int>>& matrix) {
-    int n = matrix.size();
-    vector<vector<int>> M11(n/2, vector<int>(n/2));
-    vector<vector<int>> M12(n/2, vector<int>(n/2));
-    vector<vector<int>> M21(n/2, vector<int>(n/2));
-    vector<vector<int>> M22(n/2, vector<int>(n/2));
-    for (int i = 0; i < n/2; i++) {
-        for (int j = 0; j < n/2; j++) {
-            M11[i][j] = matrix[i][j];
-            M12[i][j] = matrix[i][j + n/2];
-            M21[i][j] = matrix[i + n/2][j];
-            M22[i][j] = matrix[i + n/2][j + n/2];
-        }
-    }
-    return make_tuple(M11, M12, M21, M22);
-}
-
-vector<vector<int>> algoritmo(vector<vector<int>>& A, vector<vector<int>>& B) {
-    int n = A.size();
-    if (n == 1) {
-        return {{A[0][0] * B[0][0]}};
-    }
-
-    auto [A11, A12, A21, A22] = div_matrix(A);
-    auto [B11, B12, B21, B22] = div_matrix(B);
-
-    vector<vector<int>> M1 = algoritmo(add_matrices(A11, A22), add_matrices(B11, B22));
-    vector<vector<int>> M2 = algoritmo(add_matrices(A21, A22), B11);
-    vector<vector<int>> M3 = algoritmo(A11, subtract_matrices(B12, B22));
-    vector<vector<int>> M4 = algoritmo(A22, subtract_matrices(B21, B11));
-    vector<vector<int>> M5 = algoritmo(add_matrices(A11, A12), B22);
-    vector<vector<int>> M6 = algoritmo(subtract_matrices(A21, A11), add_matrices(B11, B12));
-    vector<vector<int>> M7 = algoritmo(subtract_matrices(A12, A22), add_matrices(B21, B22));
-
-    vector<vector<int>> C11 = add_matrices(subtract_matrices(add_matrices(M1, M4), M5), M7);
-    vector<vector<int>> C12 = add_matrices(M3, M5);
-    vector<vector<int>> C21 = add_matrices(M2, M4);
-    vector<vector<int>> C22 = add_matrices(subtract_matrices(add_matrices(M1, M3), M2), M6);
-
-    vector<vector<int>> C(n, vector<int>(n));
-    for (int i = 0; i < n / 2; i++) {
-        for (int j = 0; j < n / 2; j++) {
-            C[i][j] = C11[i][j];
-            C[i][j + n / 2] = C12[i][j];
-            C[i + n / 2][j] = C21[i][j];
-            C[i + n / 2][j + n / 2] = C22[i][j];
+void operar_matriz(const Matrix& A, const Matrix& B, Matrix& res, bool subtract = false) {
+    for (int i = 0; i < A.n; ++i) {
+        for (int j = 0; j < A.n; ++j) {
+            if (subtract) {
+                res(i, j) = A(i, j) - B(i, j);
+            } else {
+                res(i, j) = A(i, j) + B(i, j);
+            }
         }
     }
 
-    return C;
 }
+
+void multiplicar_standard(const Matrix& A, const Matrix& B, Matrix& C) {
+    for (int i = 0; i < A.n; i++) {
+        for (int k = 0; k < A.n; k++) {
+            int tempA = A(i, k);
+            for (int j = 0; j < A.n; j++) {
+                C(i, j) += tempA * B(k, j);
+            }
+        }
+    }
+}
+
+void algoritmo(Matrix& A, Matrix& B, Matrix& C) {
+    int n = A.n; //Tamaño de la matriz/submatriz actual 
+    if (n == 32) {
+        multiplicar_standard(A, B, C); //Multiplicación estándar para matrices pequeñas (El comportamiento es muy similar cuando ambas soluciones se usan en matrices pequeñas)
+        return;
+    }
+    //Inicio del paso de división de la matriz en submatrices
+    int nuevo_n = n / 2;
+    int size = nuevo_n * nuevo_n; //tamaño de cada submatriz
+
+    //Creación de submatrices utilizando el mismo vector de datos pero con diferentes puntos de inicio y tamaños
+    //Esto evita crear nuevas matrices y reduce el uso de memoria
+    auto sub_matriz = [&](Matrix& M, int row, int col) {
+        return Matrix{M.datos, M.largo_original, M.punto_inicio + (row * nuevo_n * M.largo_original) + (col * nuevo_n), nuevo_n};
+    };
+
+    Matrix A11 = sub_matriz(A, 0, 0), A12 = sub_matriz(A, 0, 1), A21 = sub_matriz(A, 1, 0), A22 = sub_matriz(A, 1, 1);
+    Matrix B11 = sub_matriz(B, 0, 0), B12 = sub_matriz(B, 0, 1), B21 = sub_matriz(B, 1, 0), B22 = sub_matriz(B, 1, 1);
+    Matrix C11 = sub_matriz(C, 0, 0), C12 = sub_matriz(C, 0, 1), C21 = sub_matriz(C, 1, 0), C22 = sub_matriz(C, 1, 1);
+
+    // Creación de matrices temporales para almacenar los resultados de las operaciones intermedias (M1 a M7)
+    vector<int> m1(size, 0), m2(size, 0), m3(size, 0), m4(size, 0), m5(size, 0), m6(size, 0), m7(size, 0);
+    vector<int> tA(size), tB(size);
+    Matrix M1{m1, nuevo_n, 0, nuevo_n}, M2{m2, nuevo_n, 0, nuevo_n}, M3{m3, nuevo_n, 0, nuevo_n},
+           M4{m4, nuevo_n, 0, nuevo_n}, M5{m5, nuevo_n, 0, nuevo_n}, M6{m6, nuevo_n, 0, nuevo_n},
+           M7{m7, nuevo_n, 0, nuevo_n};
+    // Matrices temporales para almacenar los resultados de las operaciones intermedias (sumas/restas de submatrices)
+    Matrix TA{tA, nuevo_n, 0, nuevo_n}, TB{tB, nuevo_n, 0, nuevo_n};
+
+    // M1 = (A11 + A22) * (B11 + B22)
+    operar_matriz(A11, A22, TA); operar_matriz(B11, B22, TB);
+    algoritmo(TA, TB, M1);
+
+    // M2 = (A21 + A22) * B11
+    operar_matriz(A21, A22, TA);
+    algoritmo(TA, B11, M2);
+
+    // M3 = A11 * (B12 - B22)
+    operar_matriz(B12, B22, TB, true);
+    algoritmo(A11, TB, M3);
+
+    // M4 = A22 * (B21 - B11)
+    operar_matriz(B21, B11, TB, true);
+    algoritmo(A22, TB, M4);
+
+    // M5 = (A11 + A12) * B22
+    operar_matriz(A11, A12, TA);
+    algoritmo(TA, B22, M5);
+
+    // M6 = (A21 - A11) * (B11 + B12)
+    operar_matriz(A21, A11, TA, true); operar_matriz(B11, B12, TB);
+    algoritmo(TA, TB, M6);
+
+    // M7 = (A12 - A22) * (B21 + B22)
+    operar_matriz(A12, A22, TA, true); operar_matriz(B21, B22, TB);
+    algoritmo(TA, TB, M7);
+
+    // Combinar resultados en C
+    for (int i = 0; i < nuevo_n; i++) {
+        for (int j = 0; j < nuevo_n; j++) {
+            C11(i, j) = M1(i, j) + M4(i, j) - M5(i, j) + M7(i, j);
+            C12(i, j) = M3(i, j) + M5(i, j);
+            C21(i, j) = M2(i, j) + M4(i, j);
+            C22(i, j) = M1(i, j) - M2(i, j) + M3(i, j) + M6(i, j);
+        }
+    }
+}
+
 
 int main() {
-    int n = 4; 
-    vector<vector<int>> A(n, vector<int>(n));
-    vector<vector<int>> B(n, vector<int>(n));
+    int n = 2048;
+    vector<int> dataA(n * n, 1), dataB(n * n, 2), dataC(n * n, 0);
 
-    for (int i = 0; i < n; i++) {  
-        for (int j = 0; j < n; j++) {  
-            A[i][j] = i * n + j + 1;
-            B[i][j] = i * n + j + 1;
-        }  
-    }
+    Matrix A{dataA, n, 0, n}, B{dataB, n, 0, n}, C{dataC, n, 0, n};
 
-    vector<vector<int>> C = algoritmo(A, B);
-  
+    auto start = chrono::high_resolution_clock::now();
+    algoritmo(A, B, C);
+    auto end = chrono::high_resolution_clock::now();
+    cout << "Tiempo Strassen: " << chrono::duration_cast<chrono::milliseconds>(end - start).count() << "ms" << endl;
+
+    Matrix C_std{dataC, n, 0, n};
+    auto start_std = chrono::high_resolution_clock::now();
+    multiplicar_standard(A, B, C_std);
+    auto end_std = chrono::high_resolution_clock::now();
+    cout << "Tiempo estándar: " << chrono::duration_cast<chrono::milliseconds>(end_std - start_std).count() << "ms" << endl;
+
+    return 0;
 }
