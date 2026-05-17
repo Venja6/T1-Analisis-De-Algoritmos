@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <string>
 #include <chrono>
+#include <fstream>
 
 using namespace std;
 struct Matrix{
@@ -21,6 +22,31 @@ struct Matrix{
         return datos[punto_inicio + row * largo_original + col];
     }
 };
+
+void leer_matriz(const string& filename, vector<int>& datos, int& n) {
+    std::ifstream in(filename);
+    if (!in) {
+        cerr << "No se pudo abrir archivo: " << filename << endl;
+        exit(1);
+    }
+
+    if (!(in >> n)) {
+        cerr << "Formato inválido: no se pudo leer la dimensión desde " << filename << endl;
+        exit(1);
+    }
+
+    datos.assign(n * n, 0);
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            if (!(in >> datos[i * n + j])) {
+                cerr << "Datos insuficientes en " << filename << ", llenando el resto con ceros" << endl;
+                return;
+            }
+        }
+    }
+}
+
+
 
 void operar_matriz(const Matrix& A, const Matrix& B, Matrix& res, bool subtract = false) {
     for (int i = 0; i < A.n; ++i) {
@@ -48,7 +74,7 @@ void multiplicar_standard(const Matrix& A, const Matrix& B, Matrix& C) {
 
 void algoritmo(Matrix& A, Matrix& B, Matrix& C) {
     int n = A.n; //Tamaño de la matriz/submatriz actual 
-    if (n == 32) {
+    if (n <= 32) {
         multiplicar_standard(A, B, C); //Multiplicación estándar para matrices pequeñas (El comportamiento es muy similar cuando ambas soluciones se usan en matrices pequeñas)
         return;
     }
@@ -116,12 +142,24 @@ void algoritmo(Matrix& A, Matrix& B, Matrix& C) {
 
 
 int main() {
-    int n = 2048;
-    vector<int> dataA(n * n, 1), dataB(n * n, 2), dataC(n * n, 0);
+    //Considerar que n (Las dimensiones) son todas iguales y potencias de 2
+    int n;
+    vector<int> dataA, dataB, dataC;
 
+    leer_matriz("A.txt", dataA, n);
+    leer_matriz("B.txt", dataB, n);
+
+    dataC.assign(n * n, 0);
+    vector<int> dataC_std(n * n, 0);
     Matrix A{dataA, n, 0, n}, B{dataB, n, 0, n}, C{dataC, n, 0, n};
+    Matrix C_std{dataC_std, n, 0, n};
 
-    auto start = chrono::high_resolution_clock::now();
+    if (n != A.n || n != B.n) {
+        cerr << "Error: Las dimensiones de las matrices no coinciden o no son potencias de 2." << endl;
+        return 1;
+    }
+
+    /*auto start = chrono::high_resolution_clock::now();
     algoritmo(A, B, C);
     auto end = chrono::high_resolution_clock::now();
     cout << "Tiempo Strassen: " << chrono::duration_cast<chrono::milliseconds>(end - start).count() << "ms" << endl;
@@ -131,6 +169,6 @@ int main() {
     multiplicar_standard(A, B, C_std);
     auto end_std = chrono::high_resolution_clock::now();
     cout << "Tiempo estándar: " << chrono::duration_cast<chrono::milliseconds>(end_std - start_std).count() << "ms" << endl;
-
+    */
     return 0;
 }
