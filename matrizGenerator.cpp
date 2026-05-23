@@ -1,16 +1,10 @@
 #include <iostream>
 #include <vector>
 #include <random>
-<<<<<<< HEAD
-#include <chrono>
-
-int x = 16;
-int y = x; 
-=======
 #include <fstream>
 #include <string>
+#include <chrono>
 
->>>>>>> b1dcac7e49c90fa4b51ce44bc2a6ab8229a79f7d
 int range_low = 0;
 int range_high = 24;
 
@@ -25,13 +19,8 @@ std::mt19937 gen(seed);
 std::uniform_int_distribution<> distribucion(range_low, range_high); 
  
 
-<<<<<<< HEAD
-//crea matrices de numeros aleatorios de range_low a range_high de tamaño preestablecido, para que el algoritmo funcione se usan potencias de 2
-std::vector<std::vector<int>> matrizGenerador(){
-=======
 //crea matrices de numeros aleatorios de range_low a range_high de tamaño preestablecido, en el enunciado se asumen dimensiones potencia de 2
 std::vector<std::vector<int>> matrizGenerador(int x, int y){
->>>>>>> b1dcac7e49c90fa4b51ce44bc2a6ab8229a79f7d
     std::vector<std::vector<int>> matriz(x, std::vector<int>(y));
     std::cout << x << "\n";
     for(int i = 0; i < x; i++){
