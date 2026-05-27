@@ -8,22 +8,22 @@
 
 using namespace std;
 struct Matrix{
-    vector<int>& datos;
+    vector<double>& datos;
     int largo_original; 
     int punto_inicio; 
     int n; //tamaño de la matriz (n x n) (Mientras el algoritmo avance, n se reducirá a la mitad en cada llamada recursiva (submatrices))
     
     //Segmento para trabajar como una matriz incluso cuando solo es un vector 1D (traductor de índices)
     //setter y getter
-    int& operator()(int row, int col) {
+    double& operator()(int row, int col) {
         return datos[punto_inicio + row * largo_original + col];
     }
-    const int& operator()(int row, int col) const {
+    const double& operator()(int row, int col) const {
         return datos[punto_inicio + row * largo_original + col];
     }
 };
 
-void leer_matriz(const string& filename, vector<int>& datos, int& n) {
+void leer_matriz(const string& filename, vector<double>& datos, int& n) {
     std::ifstream in(filename);
     if (!in) {
         cerr << "No se pudo abrir archivo: " << filename << endl;
@@ -35,7 +35,7 @@ void leer_matriz(const string& filename, vector<int>& datos, int& n) {
         exit(1);
     }
 
-    datos.assign(n * n, 0);
+    datos.assign(n * n, 0.0);
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < n; ++j) {
             if (!(in >> datos[i * n + j])) {
@@ -64,7 +64,7 @@ void operar_matriz(const Matrix& A, const Matrix& B, Matrix& res, bool subtract 
 void multiplicar_standard(const Matrix& A, const Matrix& B, Matrix& C) {
     for (int i = 0; i < A.n; i++) {
         for (int k = 0; k < A.n; k++) {
-            int tempA = A(i, k);
+            double tempA = A(i, k);
             for (int j = 0; j < A.n; j++) {
                 C(i, j) += tempA * B(k, j);
             }
@@ -72,17 +72,21 @@ void multiplicar_standard(const Matrix& A, const Matrix& B, Matrix& C) {
     }
 }
 
-void Stranssen(Matrix& A, Matrix& B, Matrix& C, vector<int>& pool, int pool_index) {
+void Stranssen(Matrix& A, Matrix& B, Matrix& C, vector<double>& pool, int pool_index) {
     int n = A.n;
-    if (n <= 64) { // Un umbral de 64 suele ser el punto dulce con Memory Pool
+    /*if (n <= 16) {
         multiplicar_standard(A, B, C);
+        return;
+    }*/
+    if (n == 1) {
+        C(0, 0) = A(0, 0) * B(0, 0);
         return;
     }
 
     int nuevo_n = n / 2;
     int size = nuevo_n * nuevo_n;
 
-    // Traductores de índices para submatrices (no asignan memoria RAM)
+    // Traductores de índices para submatrices 
     auto sub_matriz = [&](Matrix& M, int row, int col) {
         return Matrix{M.datos, M.largo_original, M.punto_inicio + (row * nuevo_n * M.largo_original) + (col * nuevo_n), nuevo_n};
     };
@@ -102,7 +106,6 @@ void Stranssen(Matrix& A, Matrix& B, Matrix& C, vector<int>& pool, int pool_inde
     Matrix TB{pool, nuevo_n, pool_index + 8 * size, nuevo_n};
 
     // El siguiente nivel recursivo usará el espacio del pool que queda libre 
-    // después de nuestras 9 matrices temporales actuales
     int siguiente_pool_index = pool_index + 9 * size;
 
     // M1 = (A11 + A22) * (B11 + B22)
@@ -146,9 +149,9 @@ void Stranssen(Matrix& A, Matrix& B, Matrix& C, vector<int>& pool, int pool_inde
 
 /*int main() {
     //Considerar que n (Las dimensiones) son todas iguales y potencias de 2
-    int n;
+    int n = 128;
     vector<int> dataA, dataB, dataC;
-
+    printf("Test");
     leer_matriz("A.txt", dataA, n);
     leer_matriz("B.txt", dataB, n);
 
@@ -160,18 +163,27 @@ void Stranssen(Matrix& A, Matrix& B, Matrix& C, vector<int>& pool, int pool_inde
     if (n != A.n || n != B.n) {
         cerr << "Error: Las dimensiones de las matrices no coinciden o no son potencias de 2." << endl;
         return 1;
-    }
-
+    }  
+    std::vector<int> global_memory_pool(3 * n * n, 0);
+    printf("test2");
     auto start = chrono::high_resolution_clock::now();
-    algoritmo(A, B, C);
+    Stranssen(A, B, C, global_memory_pool, 0);
     auto end = chrono::high_resolution_clock::now();
-    cout << "Tiempo Strassen: " << chrono::duration_cast<chrono::milliseconds>(end - start).count() << "ms" << endl;
+    printf("test3");
+    printf("Tiempo de ejecución: %.6f segundos\n", chrono::duration<double>(end - start).count());
 
-    Matrix C_std{dataC, n, 0, n};
-    auto start_std = chrono::high_resolution_clock::now();
+    // Verificar resultado con multiplicación estándar
     multiplicar_standard(A, B, C_std);
-    auto end_std = chrono::high_resolution_clock::now();
-    cout << "Tiempo estándar: " << chrono::duration_cast<chrono::milliseconds>(end_std - start_std).count() << "ms" << endl;
-    
-    return 0;
+    bool correcto = true;
+    for (int i = 0; i < n && correcto; i++) {
+        for (int j = 0; j < n && correcto; j++) {
+            if (C(i, j) != C_std(i, j)) {
+                cerr << "Error: Resultado incorrecto en posición (" << i << ", " << j << ")." << endl;
+                correcto = false;
+            }
+        }
+    }
+    if (correcto) {
+        cout << "Resultado verificado correctamente." << endl;
+    }
 }*/

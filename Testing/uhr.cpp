@@ -25,7 +25,8 @@
 int main(int argc, char *argv[])
 {
     // Validate and sanitize input
-    if (argc < 3) {
+    if (argc < 3)
+    {
         std::cerr << "Uso: " << argv[0] << " <archivo_salida.csv> <runs>" << std::endl;
         return 1;
     }
@@ -36,9 +37,6 @@ int main(int argc, char *argv[])
 
     // Set up clock variables
     std::int64_t i, executed_runs;
-    std::vector<double> times(runs);
-    std::vector<double> q;
-    double mean_time, time_stdev, dev;
     auto begin_time = std::chrono::high_resolution_clock::now();
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::nano> elapsed_time = end_time - begin_time;
@@ -56,60 +54,70 @@ int main(int argc, char *argv[])
     // Begin testing
     std::cerr << "\033[0;36mRunning tests...\033[0m" << std::endl
               << std::endl;
-    executed_runs = 0;
+    
 
-    mean_time = 0;
-    time_stdev = 0;
+    
 
     // Test configuration goes here
-    int n = 1024;
-    // Generar A
-    saveMatriz(matrizGenerador(n, n), "A.txt");
-    // Generar B
-    saveMatriz(matrizGenerador(n, n), "B.txt");
-    vector<int> dataA, dataB, dataC;
-    leer_matriz("A.txt", dataA, n);
-    leer_matriz("B.txt", dataB, n);
-
-    dataC.assign(n * n, 0);
-    vector<int> dataC_std(n * n, 0);
-    Matrix A{dataA, n, 0, n}, B{dataB, n, 0, n}, C{dataC, n, 0, n};
-    Matrix C_std{dataC_std, n, 0, n};
-    std::vector<int> global_memory_pool(3 * n * n, 0);
-    // Run to compute elapsed time
-    for (i = 0; i < runs; i++)
+    int n = 16;
+    while (n <= 2048)
     {
-        // Remember to change total depending on step type
-        display_progress(++executed_runs, runs);
+        std::int64_t executed_runs = 0;
+        std::vector<double> times(runs);
+        std::vector<double> q;
+        double mean_time = 0;
+        double time_stdev = 0;
+        double dev;
         
-        dataC.assign(n * n, 0);
-        begin_time = std::chrono::high_resolution_clock::now();
-        Stranssen(A, B, C, global_memory_pool, 0);
-        //multiplicar_standard(A, B, C);
-        end_time = std::chrono::high_resolution_clock::now();
+        // Generar A
+        saveMatriz(matrizRealGenerador(n, n), "A.txt");
+        // Generar B
+        saveMatriz(matrizRealGenerador(n, n), "B.txt");
+        vector<double> dataA, dataB, dataC;
+        leer_matriz("A.txt", dataA, n);
+        leer_matriz("B.txt", dataB, n);
 
-        elapsed_time = (end_time - begin_time) / 1e9;
-        times[i] = elapsed_time.count();
+        dataC.assign(n * n, 0.0);
+        vector<double> dataC_std(n * n, 0.0);
+        Matrix A{dataA, n, 0, n}, B{dataB, n, 0, n}, C{dataC, n, 0, n};
+        Matrix C_std{dataC_std, n, 0, n};
+        std::vector<double> global_memory_pool(3 * n * n, 0.0);
+        // Run to compute elapsed time
+        for (i = 0; i < runs; i++)
+        {
+            // Remember to change total depending on step type
+            display_progress(++executed_runs, runs);
 
-        mean_time += times[i];
+            dataC.assign(n * n, 0);
+            begin_time = std::chrono::high_resolution_clock::now();
+            //Stranssen(A, B, C, global_memory_pool, 0);
+            multiplicar_standard(A, B, C);
+            end_time = std::chrono::high_resolution_clock::now();
+
+            elapsed_time = (end_time - begin_time);
+            times[i] = std::chrono::duration<double>(elapsed_time).count();
+
+            mean_time += times[i];
+        }
+
+        // Compute statistics
+        mean_time /= runs;
+
+        for (i = 0; i < runs; i++)
+        {
+            dev = times[i] - mean_time;
+            time_stdev += dev * dev;
+        }
+
+        time_stdev /= runs - 1; // Subtract 1 to get unbiased estimator
+        time_stdev = std::sqrt(time_stdev);
+
+        quartiles(times, q);
+
+        time_data << n << "," << mean_time << "," << time_stdev << ",";
+        time_data << q[0] << "," << q[1] << "," << q[2] << "," << q[3] << "," << q[4] << std::endl;
+        n *= 2;
     }
-
-    // Compute statistics
-    mean_time /= runs;
-
-    for (i = 0; i < runs; i++)
-    {
-        dev = times[i] - mean_time;
-        time_stdev += dev * dev;
-    }
-
-    time_stdev /= runs - 1; // Subtract 1 to get unbiased estimator
-    time_stdev = std::sqrt(time_stdev);
-
-    quartiles(times, q);
-
-    time_data << n << "," << mean_time << "," << time_stdev << ",";
-    time_data << q[0] << "," << q[1] << "," << q[2] << "," << q[3] << "," << q[4] << std::endl;
 
     // This is to keep loading bar after testing
     std::cerr << std::endl
